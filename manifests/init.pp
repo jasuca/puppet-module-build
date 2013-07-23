@@ -14,19 +14,17 @@ define build::install (
   $buildoptions="",
   $extractorcmd="",
   $make_cmd="",
+  $wget_params="",
   $rm_build_folder=true) {
   
-  build::requires { "$name-requires-build-essential":  package => 'build-essential' }
-  
   Exec {
-    unless => "$test -f $creates",
+    creates => $creates,
   }
   
   $cwd    = "/usr/local/src"
   
-  $test   = "/usr/bin/test"
   $unzip  = "/usr/bin/unzip"
-  $tar    = "/usr/sbin/tar"
+  $tar    = "/bin/tar"
   $bunzip = "/usr/bin/bunzip2"
   $gunzip = "/usr/bin/gunzip"
   
@@ -58,7 +56,7 @@ define build::install (
   
   exec { "download-$name":
     cwd     => "$cwd",
-    command => "/usr/bin/wget -q $download",
+    command => "/usr/bin/wget -q $download $wget_params",
     timeout => 120, # 2 minutes
   }
   
@@ -74,6 +72,8 @@ define build::install (
     command => "$cwd/$foldername/configure $buildoptions",
     timeout => 120, # 2 minutes
     require => Exec["extract-$name"],
+    onlyif => "/bin/ls $cwd/$foldername/configure 2> /dev/null",
+
   }
   
   exec { "make-install-$name":
@@ -86,11 +86,12 @@ define build::install (
   # remove build folder
   case $rm_build_folder {
     true: {
-      notice("remove build folder")
       exec { "remove-$name-build-folder":
         cwd     => "$cwd",
-        command => "/usr/bin/rm -rf $cwd/$foldername",
+        command => "/bin/rm -rf $cwd/$foldername",
         require => Exec["make-install-$name"],
+        creates => '',
+        onlyif => "/bin/ls $cwd/$foldername/ 2> /dev/null",
       } # exec
     } # true
   } # case
